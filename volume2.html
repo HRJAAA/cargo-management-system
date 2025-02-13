@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>货物管理系统</title>
+    <style>
+        body {
+            padding: 10px;
+            font-family: Arial;
+            margin: 0 auto;
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .input-group {
+            margin: 4px 0;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .input-group label {
+            min-width: 60px;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 6px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .size-row {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 5px 0;
+            display: flex;
+            flex-wrap: nowrap;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 4px;
+        }
+
+        .size-row input {
+            flex: 1;
+            margin: 0 3px;
+            min-width: 40px;
+            padding: 6px;
+            font-size: 14px;
+        }
+
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            margin: 3px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .remove-size-btn {
+            text-indent: -9999px;
+            width: 24px;
+            height: 24px;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        #history {
+            margin-top: 20px;
+        }
+
+        #scan-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        #scan-video {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 4px;
+        }
+
+        #recordList {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>📦 货物管理系统</h2>
+
+    <div class="input-group">
+        <input type="text" id="code" placeholder="扫码内容（格式：入仓号/件数/重量/日期）">
+        <div style="display: flex;">
+            <button onclick="parseCode()">🔍 解析内容</button>
+            <button onclick="openScanModal()">📷 扫码</button>
+            <button onclick="clearScanData()">❌ 清除扫码数据</button>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label for="date">日期：</label>
+        <input type="text" id="date">
+    </div>
+    <div class="input-group">
+        <label for="warehouse">入仓号：</label>
+        <input type="text" id="warehouse">
+    </div>
+    <div class="input-group">
+        <label for="count">件数：</label>
+        <input type="text" id="count">
+    </div>
+    <div class="input-group">
+        <label for="weight">重量：</label>
+        <input type="text" id="weight">
+    </div>
+
+    <div id="sizes">
+        <div class="size-row">
+            <input type="number" placeholder="长(cm)" class="length" oninput="calculateVolume(this.parentElement); calculateTotal()">
+            <input type="number" placeholder="宽(cm)" class="width" oninput="calculateVolume(this.parentElement); calculateTotal()">
+            <input type="number" placeholder="高(cm)" class="height" oninput="calculateVolume(this.parentElement); calculateTotal()">
+            <input type="number" placeholder="数量" class="quantity" oninput="calculateVolume(this.parentElement); calculateTotal()">
+            <span class="volume">0m³</span>
+            <button class="remove-size-btn" onclick="removeSize(this.parentElement)"></button>
+        </div>
+    </div>
+
+    <button onclick="addSize()">➕ 新增尺寸</button>
+
+    <div class="input-group">
+        <label>总体积：</label>
+        <span id="total">0m³</span>
+    </div>
+
+    <div class="input-group" style="display: flex;">
+        <button onclick="save()">💾 保存记录</button>
+        <button onclick="copyData()">📋 复制数据</button>
+        <button onclick="downloadHistory()">💾 下载历史记录</button>
+    </div>
+
+    <div id="history">
+        <h3>📚 历史记录</h3>
+        <button onclick="clearHistory()">🗑️ 清空记录</button>
+        <ul id="recordList"></ul>
+    </div>
+
+    <!-- 扫码模态框 -->
+    <div id="scan-modal">
+        <video id="scan-video"></video>
+        <button onclick="closeScanModal()">关闭</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script>
+        // 解析扫码内容
+        function parseCode() {
+            let code = document.getElementById("code").value;
+            // 去除 indate
+            code = code.replace(/indate/g, '');
+            const parts = code.split("/");
+            document.getElementById("date").value = parts[3]?.trim() || "";
+            document.getElementById("warehouse").value = parts[0]?.trim() || "";
+            document.getElementById("count").value = parts[1]?.trim() || "";
+            document.getElementById("weight").value = parts[2]?.trim() || "";
+        }
+
+        // 新增尺寸行
+        function addSize() {
+            const newRow = document.querySelector(".size-row").cloneNode(true);
+            newRow.querySelectorAll("input").forEach(input => {
+                input.value = "";
+                input.oninput = function () {
+                    calculateVolume(this.parentElement);
+                    calculateTotal();
+                };
+            });
+            newRow.querySelector(".volume").textContent = "0m³";
+            document.getElementById("sizes").appendChild(newRow);
+        }
+
+        // 计算单个体积（自动转换为立方米）
+        function calculateVolume(row) {
+            const length = parseFloat(row.querySelector(".length").value) || 0;
+            const width = parseFloat(row.querySelector(".width").value) || 0;
+            const height = parseFloat(row.querySelector(".height").value) || 0;
+            const quantity = parseFloat(row.querySelector(".quantity").value) || 0;
+            const volume = (length * width * height * quantity) / 1000000; // 转换为立方米
+            row.querySelector(".volume").textContent = volume.toFixed(4) + "m³";
+        }
+
+        // 计算总体积
+        function calculateTotal() {
+            let total = 0;
+            document.querySelectorAll(".volume").forEach(span => {
+                total += parseFloat(span.textContent) || 0;
+            });
+            document.getElementById("total").textContent = total.toFixed(4) + "m³";
+        }
+
+        // 保存记录到本地存储
+        function save() {
+            const record = {
+                date: document.getElementById("date").value,
+                warehouse: document.getElementById("warehouse").value,
+                count: document.getElementById("count").value,
+                weight: document.getElementById("weight").value,
+                total: document.getElementById("total").textContent,
+                sizes: []
+            };
+
+            document.querySelectorAll(".size-row").forEach(row => {
+                record.sizes.push({
+                    length: row.querySelector(".length").value,
+                    width: row.querySelector(".width").value,
+                    height: row.querySelector(".height").value,
+                    quantity: row.querySelector(".quantity").value,
+                    volume: row.querySelector(".volume").textContent
+                });
+            });
+
+            // 保存到localStorage
+            const records = JSON.parse(localStorage.getItem("goodsRecords")) || [];
+            records.push(record);
+            localStorage.setItem("goodsRecords", JSON.stringify(records));
+
+            showHistory();
+            alert("✅ 记录已保存！");
+            clearInputs();
+        }
+
+        // 一键复制标准格式
+        function copyData() {
+            let data = `【货物信息】
+日期：${document.getElementById("date").value}
+入仓号：${document.getElementById("warehouse").value}
+件数：${document.getElementById("count").value}
+重量：${document.getElementById("weight").value}
+总体积：${document.getElementById("total").textContent}
+
+尺寸详情：\n`;
+
+            document.querySelectorAll(".size-row").forEach(row => {
+                data += `${row.querySelector(".length").value} × ${row.querySelector(".width").value} × ${row.querySelector(".height").value} × ${row.querySelector(".quantity").value} → ${row.querySelector(".volume").textContent}\n`;
+            });
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(data).then(() => {
+                    alert("📋 数据已复制到剪贴板！");
+                }).catch(() => {
+                    alert("复制失败，请手动复制。");
+                });
+            } else {
+                alert("当前浏览器不支持自动复制，请手动复制。");
+            }
+        }
+
+        // 显示历史记录
+        function showHistory() {
+            const records = JSON.parse(localStorage.getItem("goodsRecords")) || [];
+            const list = document.getElementById("recordList");
+            list.innerHTML = "";
+
+            records.forEach((record, index) => {
+                const li = document.createElement("li");
+                let sizeDetails = "";
+                record.sizes.forEach((size, i) => {
+                    sizeDetails += `尺寸${i + 1}: ${size.length} × ${size.width} × ${size.height} × ${size.quantity} → ${size.volume}<br>`;
+                });
+                li.innerHTML = `<b>记录${index + 1}</b> - ${record.date}<br>
+                        入仓号：${record.warehouse}<br>
+                        重量：${record.weight}<br>
+                        总体积：${record.total}<br>
+                        ${sizeDetails}`;
+                list.appendChild(li);
+            });
+        }
+
+        // 清空记录
+        function clearHistory() {
+            localStorage.removeItem("goodsRecords");
+            showHistory();
+        }
+
+        // 清空输入
+        function clearInputs() {
+            document.querySelectorAll("input").forEach(input => input.value = "");
+            document.querySelectorAll(".volume").forEach(span => span.textContent = "0m³");
+            document.getElementById("total").textContent = "0m³";
+            const sizesDiv = document.getElementById("sizes");
+            sizesDiv.innerHTML = `
+        <div class="size-row">
+            <input type="number" placeholder="长(cm)" class="length" oninput="calculateVolume(this.parentElement); calculateTotal()">
+            <input type="number" placeholder="宽(cm)" class="width" oninput="calculateVolume(this.parentElement); calculateTotal()">
+            <input type="number" placeholder="高(cm)" class="height" oninput="calculateVolume(this.parentElement); calculateTotal()">
+            <input type="number" placeholder="数量" class="quantity" oninput="calculateVolume(this.parentElement); calculateTotal()">
+            <span class="volume">0m³</span>
+            <button class="remove-size-btn" onclick="removeSize(this.parentElement)"></button>
+        </div>`;
+        }
+
+        // 打开扫码模态框
+        function openScanModal() {
+            const video = document.getElementById('scan-video');
+            const scanModal = document.getElementById('scan-modal');
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                const constraints = {
+                    video: { facingMode: { exact: "environment" } } // 使用后置摄像头
+                };
+                navigator.mediaDevices.getUserMedia(constraints)
+                   .then(function (stream) {
+                        video.srcObject = stream;
+                        video.play();
+                        scanModal.style.display = 'flex';
+                        startScanning(video);
+                    })
+                   .catch(function (error) {
+                        alert('无法访问摄像头：' + error.message);
+                    });
+            } else {
+                alert('当前浏览器不支持扫码功能。');
+            }
+        }
+
+        // 关闭扫码模态框
+        function closeScanModal() {
+            const video = document.getElementById('scan-video');
+            const scanModal = document.getElementById('scan-modal');
+            const stream = video.srcObject;
+            const tracks = stream.getTracks();
+            tracks.forEach(function (track) {
+                track.stop();
+            });
+            video.srcObject = null;
+            scanModal.style.display = 'none';
+        }
+
+        // 开始扫码
+        function startScanning(video) {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            const scanInterval = setInterval(() => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                if (code) {
+                    clearInterval(scanInterval);
+                    document.getElementById('code').value = code.data;
+                    parseCode();
+                    closeScanModal();
+                }
+            }, 100);
+        }
+
+        // 清除扫码数据
+        function clearScanData() {
+            document.getElementById("code").value = "";
+            document.getElementById("date").value = "";
+            document.getElementById("warehouse").value = "";
+            document.getElementById("count").value = "";
+            document.getElementById("weight").value = "";
+        }
+
+        // 删除尺寸行
+        function removeSize(row) {
+            if (document.querySelectorAll(".size-row").length > 1) {
+                row.remove();
+                calculateTotal();
+            } else {
+                alert("至少保留一行尺寸信息！");
+            }
+        }
+
+        // 下载历史记录
+        function downloadHistory() {
+            const records = JSON.parse(localStorage.getItem("goodsRecords")) || [];
+            if (records.length === 0) {
+                alert("没有历史记录可供下载。");
+                return;
+            }
+            let data = "";
+            records.forEach((record, index) => {
+                let sizeDetails = "";
+                record.sizes.forEach((size, i) => {
+                    sizeDetails += `尺寸${i + 1}: ${size.length} × ${size.width} × ${size.height} × ${size.quantity} → ${size.volume}\n`;
+                });
+                data += `【记录${index + 1}】
+日期：${record.date}
+入仓号：${record.warehouse}
+重量：${record.weight}
+总体积：${record.total}
+${sizeDetails}\n`;
+            });
+
+            const blob = new Blob([data], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'history_records.txt';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 初始化加载历史记录
+        showHistory();
+    </script>
+</body>
+
+</html>
