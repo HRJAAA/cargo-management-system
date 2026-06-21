@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#0c0e14">
+
+    <!-- 顶部工具栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="10dp"
+        android:gravity="center_vertical"
+        android:background="#141720">
+
+        <Button
+            android:id="@+id/btnOpen"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:text="打开PDF"
+            android:textSize="12sp"
+            android:backgroundTint="#1a1e2a"
+            android:textColor="#00e5a0" />
+
+        <Button
+            android:id="@+id/btnNew"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:text="新建"
+            android:textSize="12sp"
+            android:layout_marginStart="6dp"
+            android:backgroundTint="#1a1e2a"
+            android:textColor="#00e5a0" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/btnSave"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:text="保存"
+            android:textSize="12sp"
+            android:backgroundTint="#00e5a0"
+            android:textColor="#0c0e14" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#252a3a" />
+
+    <!-- 主内容区：上半 PDF 预览，下半内容流编辑 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- PDF 预览区 -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="5"
+            android:background="#0c0e14">
+
+            <ImageView
+                android:id="@+id/pdfPreview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter"
+                android:padding="8dp" />
+
+            <!-- 页码导航浮层 -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|center_horizontal"
+                android:orientation="horizontal"
+                android:padding="8dp"
+                android:gravity="center_vertical"
+                android:background="#cc141720">
+
+                <Button
+                    android:id="@+id/btnPrev"
+                    android:layout_width="36dp"
+                    android:layout_height="32dp"
+                    android:text="&lt;"
+                    android:textSize="14sp"
+                    android:padding="0dp"
+                    android:backgroundTint="#1a1e2a"
+                    android:textColor="#e4e8f1" />
+
+                <TextView
+                    android:id="@+id/pageInfo"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Page 1 / 1"
+                    android:textColor="#e4e8f1"
+                    android:textSize="13sp"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp" />
+
+                <Button
+                    android:id="@+id/btnNext"
+                    android:layout_width="36dp"
+                    android:layout_height="32dp"
+                    android:text="&gt;"
+                    android:textSize="14sp"
+                    android:padding="0dp"
+                    android:backgroundTint="#1a1e2a"
+                    android:textColor="#e4e8f1" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#252a3a" />
+
+        <!-- 内容流编辑区 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="4"
+            android:orientation="vertical"
+            android:padding="10dp">
+
+            <TextView
+                android:id="@+id/objInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Content Stream Editor"
+                android:textColor="#6b7394"
+                android:textSize="11sp"
+                android:paddingBottom="6dp"
+                android:fontFamily="monospace" />
+
+            <ScrollView
+                android:id="@+id/streamScroll"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="#141720"
+                android:padding="8dp">
+
+                <EditText
+                    android:id="@+id/streamEditor"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="top|start"
+                    android:hint="PDF content stream..."
+                    android:textColorHint="#4a5270"
+                    android:textColor="#c8d0e8"
+                    android:textSize="11sp"
+                    android:fontFamily="monospace"
+                    android:background="@android:color/transparent"
+                    android:inputType="textMultiLine|textVisiblePassword"
+                    android:scrollHorizontally="true" />
+            </ScrollView>
+
+            <Button
+                android:id="@+id/btnApply"
+                android:layout_width="match_parent"
+                android:layout_height="42dp"
+                android:layout_marginTop="8dp"
+                android:text="应用修改"
+                android:textSize="14sp"
+                android:fontFamily="sans-serif-medium"
+                android:backgroundTint="#00e5a0"
+                android:textColor="#0c0e14" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

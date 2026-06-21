@@ -1,0 +1,11 @@
+/workspace/PdfStreamEdit/app/src/main/java/com/pdfstream/edit/MainActivity.java
+/workspace/PdfStreamEdit/app/src/main/java/com/pdfstream/edit/App.java
+/workspace/pdfbox-stub/src/main/java/com/tom_roush/pdfbox/android/PDFBoxResourceLoader.java
+/workspace/pdfbox-stub/src/main/java/com/tom_roush/pdfbox/pdmodel/font/PDType1Font.java
+/workspace/pdfbox-stub/src/main/java/com/tom_roush/pdfbox/pdmodel/PDPage.java
+/workspace/pdfbox-stub/src/main/java/com/tom_roush/pdfbox/pdmodel/PDPageContentStream.java
+/workspace/pdfbox-stub/src/main/java/com/tom_roush/pdfbox/pdmodel/PDDocument.java
+/workspace/pdfbox-stub/src/main/java/com/tom_roush/pdfbox/pdmodel/common/PDStream.java
+/workspace/pdfbox-stub/src/main/java/com/tom_roush/pdfbox/pdmodel/PDRectangle.java
+/workspace/pdfbox-stub/src/main/java/com/tom_roush/pdfbox/rendering/PDFRenderer.java
+/workspace/PdfStreamEdit/build_manual/gen/com/pdfstream/edit/R.java
