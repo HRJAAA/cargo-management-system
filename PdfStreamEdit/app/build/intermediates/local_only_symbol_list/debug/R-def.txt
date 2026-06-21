@@ -1,0 +1,19 @@
+R_DEF: Internal format may change without notice
+local
+drawable ic_launcher_background
+drawable ic_launcher_foreground
+id btnApply
+id btnNew
+id btnNext
+id btnOpen
+id btnPrev
+id btnSave
+id objInfo
+id pageInfo
+id pdfPreview
+id streamEditor
+id streamScroll
+layout activity_main
+mipmap ic_launcher
+string app_name
+style AppTheme

@@ -1,0 +1,77 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.pdfstream.edit.app-mergeDebugResources-2:/values/values.xml",
+            "map": [
+                {
+                    "source": "/workspace/PdfStreamEdit/app/src/main/res/values/themes.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "9",
+                        "endColumns": "12",
+                        "endOffsets": "492"
+                    },
+                    "to": {
+                        "startLines": "3",
+                        "startColumns": "4",
+                        "startOffsets": "107",
+                        "endLines": "10",
+                        "endColumns": "12",
+                        "endOffsets": "544"
+                    }
+                },
+                {
+                    "source": "/workspace/PdfStreamEdit/app/src/main/res/values/strings.xml",
+                    "from": {
+                        "startLines": "-1",
+                        "startColumns": "-1",
+                        "startOffsets": "-1"
+                    },
+                    "to": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "51",
+                        "endOffsets": "102"
+                    }
+                }
+            ]
+        },
+        {
+            "outputFile": "/root/.gradle/daemon/8.14.4/com.pdfstream.edit.app-mergeDebugResources-2:/values/values.xml",
+            "map": [
+                {
+                    "source": "/workspace/PdfStreamEdit/app/src/main/res/values/themes.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endLines": "9",
+                        "endColumns": "12",
+                        "endOffsets": "474"
+                    },
+                    "to": {
+                        "startLines": "3",
+                        "startColumns": "4",
+                        "startOffsets": "107",
+                        "endLines": "10",
+                        "endColumns": "12",
+                        "endOffsets": "526"
+                    }
+                },
+                {
+                    "source": "/workspace/PdfStreamEdit/app/src/main/res/values/strings.xml",
+                    "from": {
+                        "startLines": "2",
+                        "startColumns": "4",
+                        "startOffsets": "55",
+                        "endColumns": "51",
+                        "endOffsets": "102"
+                    }
+                }
+            ]
+        }
+    ]
+}

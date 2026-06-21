@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PDF StreamEdit</string>
+    <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorPrimary">#00e5a0</item>
+        <item name="android:colorPrimaryDark">#0c0e14</item>
+        <item name="android:colorAccent">#00e5a0</item>
+        <item name="android:windowBackground">#0c0e14</item>
+        <item name="android:statusBarColor">#141720</item>
+        <item name="android:navigationBarColor">#141720</item>
+    </style>
+</resources>

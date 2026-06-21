@@ -1,0 +1,7 @@
+com.pdfstream.edit.app-pngs-0 /workspace/PdfStreamEdit/app/build/generated/res/pngs/debug
+com.pdfstream.edit.app-resValues-1 /workspace/PdfStreamEdit/app/build/generated/res/resValues/debug
+com.pdfstream.edit.app-packageDebugResources-2 /workspace/PdfStreamEdit/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
+com.pdfstream.edit.app-packageDebugResources-3 /workspace/PdfStreamEdit/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
+com.pdfstream.edit.app-merged_res-4 /workspace/PdfStreamEdit/app/build/intermediates/merged_res/debug
+com.pdfstream.edit.app-debug-5 /workspace/PdfStreamEdit/app/src/debug/res
+com.pdfstream.edit.app-main-6 /workspace/PdfStreamEdit/app/src/main/res

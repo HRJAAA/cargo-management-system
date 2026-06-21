@@ -1,16 +1,16 @@
 pluginManagement {
     repositories {
+        maven { url '/workspace/local-maven-repo' }
         google()
-        maven { url 'https://maven.aliyun.com/repository/central' }
         mavenCentral()
         gradlePluginPortal()
     }
 }
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
+        maven { url '/workspace/local-maven-repo' }
         google()
-        maven { url 'https://maven.aliyun.com/repository/central' }
         mavenCentral()
     }
 }

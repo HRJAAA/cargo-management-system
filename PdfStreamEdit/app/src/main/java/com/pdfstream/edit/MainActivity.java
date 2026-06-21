@@ -5,16 +5,13 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
-import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -27,7 +24,6 @@ import com.tom_roush.pdfbox.pdmodel.common.PDStream;
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font;
 import com.tom_roush.pdfbox.rendering.PDFRenderer;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -38,7 +34,9 @@ import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends Activity {
 
-    private static final int OPEN_PDF_REQUEST = 1001;
+    private static final int REQUEST_OPEN_PDF = 1001;
+    private static final int REQUEST_PERMISSIONS = 1002;
+
     private PDDocument document;
     private int currentPageIndex = 0;
     private File currentFile;
@@ -53,67 +51,71 @@ public class MainActivity extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        pdfPreview = (ImageView) findViewById(R.id.pdfPreview);
-        streamEditor = (EditText) findViewById(R.id.streamEditor);
-        pageInfo = (TextView) findViewById(R.id.pageInfo);
-        objInfo = (TextView) findViewById(R.id.objInfo);
-        btnPrev = (Button) findViewById(R.id.btnPrev);
-        btnNext = (Button) findViewById(R.id.btnNext);
-        btnApply = (Button) findViewById(R.id.btnApply);
-        btnOpen = (Button) findViewById(R.id.btnOpen);
-        btnNew = (Button) findViewById(R.id.btnNew);
-        btnSave = (Button) findViewById(R.id.btnSave);
+        pdfPreview = findViewById(R.id.pdfPreview);
+        streamEditor = findViewById(R.id.streamEditor);
+        pageInfo = findViewById(R.id.pageInfo);
+        objInfo = findViewById(R.id.objInfo);
+        btnPrev = findViewById(R.id.btnPrev);
+        btnNext = findViewById(R.id.btnNext);
+        btnApply = findViewById(R.id.btnApply);
+        btnOpen = findViewById(R.id.btnOpen);
+        btnNew = findViewById(R.id.btnNew);
+        btnSave = findViewById(R.id.btnSave);
 
-        btnOpen.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { openPdf(); }
-        });
-        btnNew.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { createNewPdf(); }
-        });
-        btnPrev.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { navigatePage(-1); }
-        });
-        btnNext.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { navigatePage(1); }
-        });
-        btnApply.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { applyStreamChanges(); }
-        });
-        btnSave.setOnClickListener(new View.OnClickListener() {
-            @Override public void onClick(View v) { savePdf(); }
-        });
+        btnOpen.setOnClickListener(v -> openPdf());
+        btnNew.setOnClickListener(v -> createNewPdf());
+        btnPrev.setOnClickListener(v -> navigatePage(-1));
+        btnNext.setOnClickListener(v -> navigatePage(1));
+        btnApply.setOnClickListener(v -> applyStreamChanges());
+        btnSave.setOnClickListener(v -> savePdf());
 
+        requestPermissions();
         createNewPdf();
+    }
+
+    private void requestPermissions() {
+        if (checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                    new String[]{
+                            Manifest.permission.READ_EXTERNAL_STORAGE,
+                            Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    }, REQUEST_PERMISSIONS);
+        }
     }
 
     private void openPdf() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("application/pdf");
-        startActivityForResult(intent, OPEN_PDF_REQUEST);
+        startActivityForResult(intent, REQUEST_OPEN_PDF);
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == OPEN_PDF_REQUEST && resultCode == RESULT_OK && data != null) {
-            Uri uri = data.getData();
-            try (InputStream is = getContentResolver().openInputStream(uri)) {
-                if (document != null) document.close();
-                File tempFile = File.createTempFile("pdf_edit_", ".pdf", getCacheDir());
-                try (OutputStream os = new FileOutputStream(tempFile)) {
-                    byte[] buf = new byte[8192];
-                    int len;
-                    while ((len = is.read(buf)) > 0) os.write(buf, 0, len);
-                }
-                document = PDDocument.load(tempFile);
-                currentFile = tempFile;
-                currentPageIndex = 0;
-                refreshView();
-                Toast.makeText(this, "已加载: " + uri.getLastPathSegment(), Toast.LENGTH_SHORT).show();
-            } catch (IOException e) {
-                Toast.makeText(this, "加载失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        if (requestCode == REQUEST_OPEN_PDF && resultCode == RESULT_OK && data != null) {
+            onPdfSelected(data.getData());
+        }
+    }
+
+    private void onPdfSelected(Uri uri) {
+        if (uri == null) return;
+        try (InputStream is = getContentResolver().openInputStream(uri)) {
+            if (document != null) document.close();
+            File tempFile = File.createTempFile("pdf_edit_", ".pdf", getCacheDir());
+            try (OutputStream os = new FileOutputStream(tempFile)) {
+                byte[] buf = new byte[8192];
+                int len;
+                while ((len = is.read(buf)) > 0) os.write(buf, 0, len);
             }
+            document = PDDocument.load(tempFile);
+            currentFile = tempFile;
+            currentPageIndex = 0;
+            refreshView();
+            Toast.makeText(this, "已加载: " + uri.getLastPathSegment(), Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            Toast.makeText(this, "加载失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
@@ -175,14 +177,13 @@ public class MainActivity extends Activity {
         if (document == null) return;
         try {
             PDPage page = document.getPage(currentPageIndex);
-            PDStream contents = page.getContents();
-            if (contents == null) {
+            InputStream is = page.getContents();
+            if (is == null) {
                 streamEditor.setText("% (空内容流)");
                 objInfo.setText("Page " + (currentPageIndex + 1) + " - 无内容流");
                 return;
             }
 
-            InputStream is = contents.createInputStream();
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             byte[] buf = new byte[4096];
             int len;

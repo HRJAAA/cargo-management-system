@@ -1,7 +1,7 @@
 buildscript {
     repositories {
+        maven { url '/workspace/local-maven-repo' }
         google()
-        maven { url 'https://maven.aliyun.com/repository/central' }
         mavenCentral()
     }
     dependencies {
@@ -11,8 +11,8 @@ buildscript {
 
 allprojects {
     repositories {
+        maven { url '/workspace/local-maven-repo' }
         google()
-        maven { url 'https://maven.aliyun.com/repository/central' }
         mavenCentral()
     }
 }
