@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF Content Stream Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@300;400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0e14;
+    --surface: #141720;
+    --surface2: #1a1e2a;
+    --border: #252a3a;
+    --accent: #00e5a0;
+    --accent2: #00b8d4;
+    --accent-dim: rgba(0,229,160,0.12);
+    --text: #e4e8f1;
+    --text-dim: #6b7394;
+    --danger: #ff5c72;
+    --warn: #ffb347;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Background atmosphere ── */
+  body::before {
+    content: '';
+    position: fixed;
+    top: -40%; left: -20%;
+    width: 80vw; height: 80vw;
+    background: radial-gradient(circle, rgba(0,229,160,0.06) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    bottom: -30%; right: -10%;
+    width: 60vw; height: 60vw;
+    background: radial-gradient(circle, rgba(0,184,212,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Top bar ── */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 24px;
+    background: rgba(20,23,32,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-logo {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 800; font-size: 18px; letter-spacing: -0.5px;
+  }
+  .topbar-logo svg { width: 28px; height: 28px; }
+  .topbar-logo span { color: var(--accent); }
+  .topbar-info {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12px; color: var(--text-dim);
+  }
+  .badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px; font-weight: 600;
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(0,229,160,0.2);
+  }
+  .badge.lib { background: rgba(0,184,212,0.12); color: var(--accent2); border-color: rgba(0,184,212,0.2); }
+
+  /* ── Main layout ── */
+  .main {
+    position: relative; z-index: 1;
+    display: grid;
+    grid-template-columns: 280px 1fr 360px;
+    height: calc(100vh - 53px);
+  }
+
+  /* ── Left panel: page list ── */
+  .panel-left {
+    border-right: 1px solid var(--border);
+    background: var(--surface);
+    display: flex; flex-direction: column;
+  }
+  .panel-header {
+    padding: 16px 18px;
+    font-size: 12px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+  }
+  .page-list {
+    flex: 1; overflow-y: auto;
+    padding: 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .page-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid transparent;
+  }
+  .page-item:hover { background: var(--surface2); }
+  .page-item.active {
+    background: var(--accent-dim);
+    border-color: rgba(0,229,160,0.25);
+  }
+  .page-thumb {
+    width: 48px; height: 64px;
+    border-radius: 6px;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 800; color: #333;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    position: relative;
+    overflow: hidden;
+  }
+  .page-thumb::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 6px;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+  .page-meta { font-size: 13px; }
+  .page-meta .label { color: var(--text-dim); font-size: 11px; }
+  .page-meta .size { color: var(--text); font-weight: 600; }
+
+  /* ── Center: PDF preview ── */
+  .panel-center {
+    display: flex; flex-direction: column;
+    background: var(--bg);
+    position: relative;
+  }
+  .toolbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 20px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .tool-btn {
+    padding: 7px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tool-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .tool-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+  .tool-btn svg { width: 14px; height: 14px; }
+  .toolbar-sep { width: 1px; height: 24px; background: var(--border); margin: 0 4px; }
+  .toolbar-right { margin-left: auto; display: flex; gap: 8px; }
+
+  .preview-area {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 40px;
+    position: relative;
+    overflow: auto;
+  }
+  .pdf-page {
+    width: 595px;
+    min-height: 842px;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+    position: relative;
+    padding: 60px 50px;
+    color: #1a1a2e;
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+  .pdf-page h1 {
+    font-size: 22px; font-weight: 800;
+    margin-bottom: 16px;
+    color: #0d1b2a;
+    line-height: 1.3;
+  }
+  .pdf-page p {
+    font-size: 13px; line-height: 1.8;
+    color: #3a3f5c;
+    margin-bottom: 12px;
+  }
+  .pdf-page .highlight {
+    background: rgba(0,229,160,0.15);
+    border-bottom: 2px solid var(--accent);
+    padding: 1px 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .pdf-page .highlight:hover {
+    background: rgba(0,229,160,0.3);
+  }
+  .stream-overlay {
+    position: absolute;
+    top: 12px; right: 12px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(0,229,160,0.15);
+    color: var(--accent);
+    font-size: 10px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    border: 1px solid rgba(0,229,160,0.3);
+  }
+
+  /* ── Right panel: content stream editor ── */
+  .panel-right {
+    border-left: 1px solid var(--border);
+    background: var(--surface);
+    display: flex; flex-direction: column;
+  }
+  .editor-header {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .editor-header h3 {
+    font-size: 13px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+  .editor-tabs {
+    display: flex; gap: 2px;
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  .editor-tab {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    color: var(--text-dim);
+    transition: all 0.2s;
+  }
+  .editor-tab:hover { color: var(--text); }
+  .editor-tab.active {
+    background: var(--accent-dim);
+    color: var(--accent);
+  }
+
+  .editor-body {
+    flex: 1;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .stream-code {
+    flex: 1;
+    padding: 16px;
+    overflow-y: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: #c8d0e8;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .stream-code .kw { color: var(--accent); font-weight: 600; }
+  .stream-code .num { color: var(--warn); }
+  .stream-code .str { color: #ff9cf5; }
+  .stream-code .op { color: #7b8cde; }
+  .stream-code .cmt { color: #4a5270; font-style: italic; }
+  .stream-code .edited {
+    background: rgba(255,92,114,0.12);
+    border-left: 3px solid var(--danger);
+    padding-left: 8px;
+    margin-left: -11px;
+    display: inline-block;
+    width: calc(100% + 11px);
+  }
+
+  .editor-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 8px;
+  }
+  .btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #0c0e14;
+  }
+  .btn-primary:hover { background: #33edb5; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,229,160,0.3); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--text-dim); color: var(--text); }
+  .btn-danger {
+    background: rgba(255,92,114,0.12);
+    color: var(--danger);
+    border: 1px solid rgba(255,92,114,0.2);
+  }
+  .btn-danger:hover { background: rgba(255,92,114,0.2); }
+
+  /* ── Object tree in left panel ── */
+  .obj-tree {
+    padding: 0 12px 12px;
+  }
+  .obj-section {
+    margin-bottom: 6px;
+  }
+  .obj-toggle {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px; font-weight: 600;
+    color: var(--text);
+    transition: all 0.2s;
+  }
+  .obj-toggle:hover { background: var(--surface2); }
+  .obj-toggle .arrow { color: var(--text-dim); font-size: 10px; transition: transform 0.2s; }
+  .obj-toggle.open .arrow { transform: rotate(90deg); }
+  .obj-children {
+    padding-left: 20px;
+    display: none;
+  }
+  .obj-toggle.open + .obj-children { display: block; }
+  .obj-child {
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .obj-child:hover { background: var(--surface2); color: var(--text); }
+  .obj-child.active { color: var(--accent); background: var(--accent-dim); }
+
+  /* ── Toast notification ── */
+  .toast {
+    position: fixed;
+    bottom: 24px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    padding: 12px 24px;
+    border-radius: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-size: 13px; font-weight: 600;
+    box-shadow: 0 8px 32px rgba(0,229,160,0.2);
+    z-index: 999;
+    opacity: 0;
+    transition: all 0.4s cubic-bezier(0.16,1,0.3,1);
+    pointer-events: none;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+  /* ── Animations ── */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .page-item { animation: fadeIn 0.3s ease both; }
+  .page-item:nth-child(2) { animation-delay: 0.05s; }
+  .page-item:nth-child(3) { animation-delay: 0.1s; }
+  .page-item:nth-child(4) { animation-delay: 0.15s; }
+
+  /* ── Responsive ── */
+  @media (max-width: 1100px) {
+    .main { grid-template-columns: 1fr 360px; }
+    .panel-left { display: none; }
+  }
+  @media (max-width: 768px) {
+    .main { grid-template-columns: 1fr; }
+    .panel-right { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="topbar-logo">
+    <svg viewBox="0 0 28 28" fill="none">
+      <rect x="2" y="2" width="24" height="24" rx="6" fill="url(#g1)"/>
+      <path d="M9 8h4c2.2 0 4 1.8 4 4s-1.8 4-4 4h-4V8z" stroke="#0c0e14" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <defs><linearGradient id="g1" x1="2" y1="2" x2="26" y2="26"><stop stop-color="#00e5a0"/><stop offset="1" stop-color="#00b8d4"/></linearGradient></defs>
+    </svg>
+    PDF <span>StreamEdit</span>
+  </div>
+  <div class="topbar-info">
+    <span class="badge">PdfBox-Android 2.0.27</span>
+    <span class="badge lib">Apache 2.0</span>
+    <span>sample.pdf</span>
+  </div>
+</div>
+
+<!-- Main layout -->
+<div class="main">
+
+  <!-- Left: page list & object tree -->
+  <div class="panel-left">
+    <div class="panel-header">页面列表</div>
+    <div class="page-list">
+      <div class="page-item active" onclick="selectPage(this,0)">
+        <div class="page-thumb">1</div>
+        <div class="page-meta">
+          <div class="label">Page 1</div>
+          <div class="size">595 × 842 pt</div>
+        </div>
+      </div>
+      <div class="page-item" onclick="selectPage(this,1)">
+        <div class="page-thumb">2</div>
+        <div class="page-meta">
+          <div class="label">Page 2</div>
+          <div class="size">595 × 842 pt</div>
+        </div>
+      </div>
+      <div class="page-item" onclick="selectPage(this,2)">
+        <div class="page-thumb">3</div>
+        <div class="page-meta">
+          <div class="label">Page 3</div>
+          <div class="size">595 × 842 pt</div>
+        </div>
+      </div>
+      <div class="page-item" onclick="selectPage(this,3)">
+        <div class="page-thumb">4</div>
+        <div class="page-meta">
+          <div class="label">Page 4</div>
+          <div class="size">595 × 842 pt</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel-header">PDF 对象树</div>
+    <div class="obj-tree">
+      <div class="obj-section">
+        <div class="obj-toggle open" onclick="toggleObj(this)">
+          <span class="arrow">▶</span> Catalog (1 0)
+        </div>
+        <div class="obj-children">
+          <div class="obj-child active" onclick="selectObj(this,'catalog')">Pages → 2 0 R</div>
+        </div>
+      </div>
+      <div class="obj-section">
+        <div class="obj-toggle" onclick="toggleObj(this)">
+          <span class="arrow">▶</span> Pages (2 0)
+        </div>
+        <div class="obj-children">
+          <div class="obj-child" onclick="selectObj(this,'pages')">Kids: [3 0, 7 0, 11 0, 15 0]</div>
+        </div>
+      </div>
+      <div class="obj-section">
+        <div class="obj-toggle" onclick="toggleObj(this)">
+          <span class="arrow">▶</span> Page (3 0)
+        </div>
+        <div class="obj-children">
+          <div class="obj-child" onclick="selectObj(this,'contents')">Contents → 4 0 R</div>
+          <div class="obj-child" onclick="selectObj(this,'resources')">Resources → 5 0 R</div>
+          <div class="obj-child" onclick="selectObj(this,'font')">Font F1 → 6 0 R</div>
+        </div>
+      </div>
+      <div class="obj-section">
+        <div class="obj-toggle" onclick="toggleObj(this)">
+          <span class="arrow">▶</span> Content Stream (4 0)
+        </div>
+        <div class="obj-children">
+          <div class="obj-child" onclick="selectObj(this,'stream')">Stream Length: 487</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Center: PDF preview -->
+  <div class="panel-center">
+    <div class="toolbar">
+      <button class="tool-btn active" onclick="setTool(this,'select')">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3 1l10 6.5L8 9l-2 6L3 1z"/></svg>
+        选择
+      </button>
+      <button class="tool-btn" onclick="setTool(this,'text')">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 3h12v2H2zm0 4h8v2H2zm0 4h12v2H2z"/></svg>
+        文本
+      </button>
+      <button class="tool-btn" onclick="setTool(this,'stream')">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 3h2v10H1zm4 2h2v8H5zm4-1h2v9H9zm4 1h2v8h-2z"/></svg>
+        流编辑
+      </button>
+      <div class="toolbar-sep"></div>
+      <button class="tool-btn" onclick="zoomOut()">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 7h10v2H1z"/></svg>
+      </button>
+      <span style="font-size:12px;color:var(--text-dim);min-width:40px;text-align:center" id="zoomLabel">100%</span>
+      <button class="tool-btn" onclick="zoomIn()">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 7h4V3h2v4h4v2H7v4H5V9H1z"/></svg>
+      </button>
+      <div class="toolbar-right">
+        <button class="tool-btn" onclick="showToast('已保存到 /output/sample_edited.pdf')">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 12v2h12v-2H2zm1-4l1.4 1.4L7 7v6h2V7l2.6 2.4L13 8l-5-5-5 5z"/></svg>
+          保存
+        </button>
+      </div>
+    </div>
+    <div class="preview-area" id="previewArea">
+      <div class="pdf-page" id="pdfPage">
+        <div class="stream-overlay">STREAM 4 0 R</div>
+        <h1>PdfBox-Android 内容流编辑器</h1>
+        <p>本应用基于 <span class="highlight" onclick="highlightClick(this)">PdfBox-Android 2.0.27</span> 开源库构建，支持直接修改 PDF 内容流（Content Stream）。</p>
+        <p>内容流是 PDF 页面的核心数据结构，包含文本绘制指令、图形操作符和坐标信息。通过编辑内容流，您可以精确控制 PDF 页面上的每一个元素。</p>
+        <p>点击右侧面板中的流代码即可 <span class="highlight" onclick="highlightClick(this)">实时编辑</span> 内容流指令。修改后点击「应用修改」将变更写回 PDF 文档。</p>
+        <p style="margin-top:24px;font-size:12px;color:#888;">示例文档 · 4 页 · 487 bytes stream</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right: content stream editor -->
+  <div class="panel-right">
+    <div class="editor-header">
+      <h3>内容流编辑器</h3>
+      <span class="badge" style="font-size:10px;">Object 4 0</span>
+    </div>
+    <div class="editor-tabs">
+      <div class="editor-tab active" onclick="switchTab(this,'raw')">原始流</div>
+      <div class="editor-tab" onclick="switchTab(this,'parsed')">解析视图</div>
+      <div class="editor-tab" onclick="switchTab(this,'diff')">差异对比</div>
+    </div>
+    <div class="editor-body">
+      <div class="stream-code" id="streamEditor" contenteditable="true" spellcheck="false"><span class="cmt">% PDF Content Stream - Page 1</span>
+<span class="kw">BT</span>
+  <span class="kw">/F1</span> <span class="num">22</span> <span class="kw">Tf</span>
+  <span class="num">50</span> <span class="num">780</span> <span class="kw">Td</span>
+  <span class="str">(PdfBox-Android)</span> <span class="kw">Tj</span>
+  <span class="num">0</span> <span class="num">-28</span> <span class="kw">Td</span>
+  <span class="kw">/F1</span> <span class="num">13</span> <span class="kw">Tf</span>
+  <span class="str">(内容流编辑器)</span> <span class="kw">Tj</span>
+<span class="kw">ET</span>
+
+<span class="kw">BT</span>
+  <span class="kw">/F1</span> <span class="num">11</span> <span class="kw">Tf</span>
+  <span class="num">50</span> <span class="num">720</span> <span class="kw">Td</span>
+  <span class="str">(本应用基于 PdfBox-Android 2.0.27 开源库构建)</span> <span class="kw">Tj</span>
+  <span class="num">0</span> <span class="num">-20</span> <span class="kw">Td</span>
+  <span class="str">(支持直接修改 PDF 内容流（Content Stream）。)</span> <span class="kw">Tj</span>
+  <span class="num">0</span> <span class="num">-20</span> <span class="kw">Td</span>
+<span class="edited">  <span class="str">(内容流是 PDF 页面的核心数据结构。)</span> <span class="kw">Tj</span></span>
+  <span class="num">0</span> <span class="num">-20</span> <span class="kw">Td</span>
+  <span class="str">(点击右侧面板中的流代码即可实时编辑。)</span> <span class="kw">Tj</span>
+<span class="kw">ET</span>
+
+<span class="cmt">% End of content stream</span></div>
+    </div>
+    <div class="editor-footer">
+      <button class="btn btn-primary" onclick="applyChange()">应用修改</button>
+      <button class="btn btn-ghost" onclick="resetStream()">重置</button>
+      <button class="btn btn-danger" style="margin-left:auto" onclick="showToast('已撤销修改')">撤销</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  let currentZoom = 100;
+
+  function selectPage(el, idx) {
+    document.querySelectorAll('.page-item').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function toggleObj(el) {
+    el.classList.toggle('open');
+  }
+
+  function selectObj(el, type) {
+    document.querySelectorAll('.obj-child').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function setTool(el, tool) {
+    document.querySelectorAll('.tool-btn').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function zoomIn() {
+    currentZoom = Math.min(200, currentZoom + 10);
+    updateZoom();
+  }
+  function zoomOut() {
+    currentZoom = Math.max(50, currentZoom - 10);
+    updateZoom();
+  }
+  function updateZoom() {
+    document.getElementById('pdfPage').style.transform = `scale(${currentZoom/100})`;
+    document.getElementById('pdfPage').style.transformOrigin = 'center top';
+    document.getElementById('zoomLabel').textContent = currentZoom + '%';
+  }
+
+  function switchTab(el, tab) {
+    document.querySelectorAll('.editor-tab').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+    const editor = document.getElementById('streamEditor');
+    if (tab === 'diff') {
+      showToast('差异对比模式：已修改 1 处内容流指令');
+    }
+  }
+
+  function highlightClick(el) {
+    el.style.background = 'rgba(0,229,160,0.4)';
+    setTimeout(() => el.style.background = '', 600);
+  }
+
+  function applyChange() {
+    showToast('内容流修改已应用 → PDPageContentStream 写入成功');
+  }
+
+  function resetStream() {
+    showToast('内容流已重置为原始状态');
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+</script>
+</body>
+</html>
