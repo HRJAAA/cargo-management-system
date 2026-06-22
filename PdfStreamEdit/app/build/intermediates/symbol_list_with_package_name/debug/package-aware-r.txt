@@ -1,17 +1,19 @@
 com.pdfstream.edit
 drawable ic_launcher_background
 drawable ic_launcher_foreground
-id btnApply
 id btnNew
 id btnNext
 id btnOpen
 id btnPrev
+id btnReplace
 id btnSave
+id editFind
+id editReplace
 id objInfo
 id pageInfo
 id pdfPreview
-id streamEditor
-id streamScroll
+id textPreview
+id textScroll
 layout activity_main
 mipmap ic_launcher
 string app_name

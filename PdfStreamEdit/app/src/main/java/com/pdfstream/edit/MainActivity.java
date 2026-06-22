@@ -12,7 +12,6 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -23,6 +22,7 @@ import com.tom_roush.pdfbox.pdmodel.PDPageContentStream;
 import com.tom_roush.pdfbox.pdmodel.common.PDStream;
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font;
 import com.tom_roush.pdfbox.rendering.PDFRenderer;
+import com.tom_roush.pdfbox.text.PDFTextStripper;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -41,10 +41,12 @@ public class MainActivity extends Activity {
     private int currentPageIndex = 0;
     private File currentFile;
     private ImageView pdfPreview;
-    private EditText streamEditor;
+    private TextView textPreview;
     private TextView pageInfo;
     private TextView objInfo;
-    private Button btnPrev, btnNext, btnApply, btnOpen, btnNew, btnSave;
+    private EditText editFind;
+    private EditText editReplace;
+    private Button btnPrev, btnNext, btnReplace, btnOpen, btnNew, btnSave;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,12 +54,14 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         pdfPreview = findViewById(R.id.pdfPreview);
-        streamEditor = findViewById(R.id.streamEditor);
+        textPreview = findViewById(R.id.textPreview);
         pageInfo = findViewById(R.id.pageInfo);
         objInfo = findViewById(R.id.objInfo);
+        editFind = findViewById(R.id.editFind);
+        editReplace = findViewById(R.id.editReplace);
         btnPrev = findViewById(R.id.btnPrev);
         btnNext = findViewById(R.id.btnNext);
-        btnApply = findViewById(R.id.btnApply);
+        btnReplace = findViewById(R.id.btnReplace);
         btnOpen = findViewById(R.id.btnOpen);
         btnNew = findViewById(R.id.btnNew);
         btnSave = findViewById(R.id.btnSave);
@@ -66,7 +70,7 @@ public class MainActivity extends Activity {
         btnNew.setOnClickListener(v -> createNewPdf());
         btnPrev.setOnClickListener(v -> navigatePage(-1));
         btnNext.setOnClickListener(v -> navigatePage(1));
-        btnApply.setOnClickListener(v -> applyStreamChanges());
+        btnReplace.setOnClickListener(v -> replaceText());
         btnSave.setOnClickListener(v -> savePdf());
 
         requestPermissions();
@@ -131,17 +135,17 @@ public class MainActivity extends Activity {
                 cs.setFont(PDType1Font.HELVETICA_BOLD, 22);
                 cs.beginText();
                 cs.newLineAtOffset(50, 760);
-                cs.showText("PdfBox-Android Content Stream Editor");
+                cs.showText("PDF Text Editor");
                 cs.endText();
 
                 cs.setFont(PDType1Font.HELVETICA, 12);
                 cs.beginText();
                 cs.newLineAtOffset(50, 720);
-                cs.showText("This PDF was created with PdfBox-Android 2.0.27");
+                cs.showText("This PDF was created with PdfBox-Android.");
                 cs.newLineAtOffset(0, -20);
-                cs.showText("You can edit the content stream directly.");
+                cs.showText("You can find and replace text directly.");
                 cs.newLineAtOffset(0, -20);
-                cs.showText("Tap 'Apply' to write changes back to the PDF.");
+                cs.showText("Enter the text to find and replace below.");
                 cs.endText();
             }
 
@@ -163,24 +167,56 @@ public class MainActivity extends Activity {
             pdfPreview.setImageBitmap(bitmap);
 
             int totalPages = document.getNumberOfPages();
-            pageInfo.setText("Page " + (currentPageIndex + 1) + " / " + totalPages);
+            pageInfo.setText("第 " + (currentPageIndex + 1) + " / " + totalPages + " 页");
             btnPrev.setEnabled(currentPageIndex > 0);
             btnNext.setEnabled(currentPageIndex < totalPages - 1);
 
-            loadContentStream();
+            extractPageText();
         } catch (IOException e) {
             Toast.makeText(this, "渲染失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
-    private void loadContentStream() {
+    private void extractPageText() {
         if (document == null) return;
+        try {
+            PDFTextStripper stripper = new PDFTextStripper();
+            stripper.setStartPage(currentPageIndex + 1);
+            stripper.setEndPage(currentPageIndex + 1);
+            String text = stripper.getText(document);
+
+            if (text == null || text.trim().isEmpty()) {
+                textPreview.setText("(本页无可提取的文字)");
+                objInfo.setText("本页文字内容 — 无文字");
+            } else {
+                textPreview.setText(text.trim());
+                int charCount = text.trim().length();
+                objInfo.setText("本页文字内容 — " + charCount + " 字");
+            }
+        } catch (IOException e) {
+            textPreview.setText("(提取文字失败: " + e.getMessage() + ")");
+        }
+    }
+
+    private void replaceText() {
+        if (document == null) {
+            Toast.makeText(this, "请先打开或新建 PDF", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String findText = editFind.getText().toString();
+        String replaceWith = editReplace.getText().toString();
+
+        if (findText.isEmpty()) {
+            Toast.makeText(this, "请输入要查找的文字", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         try {
             PDPage page = document.getPage(currentPageIndex);
             InputStream is = page.getContents();
             if (is == null) {
-                streamEditor.setText("% (空内容流)");
-                objInfo.setText("Page " + (currentPageIndex + 1) + " - 无内容流");
+                Toast.makeText(this, "本页无内容", Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -190,44 +226,154 @@ public class MainActivity extends Activity {
             while ((len = is.read(buf)) > 0) baos.write(buf, 0, len);
             is.close();
 
-            String streamText = baos.toString("UTF-8");
-            streamEditor.setText(streamText);
-            objInfo.setText("Page " + (currentPageIndex + 1) + " | Stream: " + baos.size() + " bytes");
-        } catch (IOException e) {
-            streamEditor.setText("% 读取内容流失败: " + e.getMessage());
-        }
-    }
+            String streamContent = baos.toString("UTF-8");
 
-    private void applyStreamChanges() {
-        if (document == null) return;
-        try {
-            PDPage page = document.getPage(currentPageIndex);
-            String newContent = streamEditor.getText().toString();
+            // 在内容流中查找替换：处理 PDF 文本操作符中的文字
+            // 匹配 (text) Tj 和 [(text1)(text2)] TJ 两种格式
+            String newStreamContent = replaceTextInStream(streamContent, findText, replaceWith);
 
+            if (newStreamContent.equals(streamContent)) {
+                Toast.makeText(this, "未找到 \"" + findText + "\"", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // 写回修改后的内容流
             PDStream newStream = new PDStream(document);
             try (OutputStream os = newStream.createOutputStream()) {
-                os.write(newContent.getBytes(StandardCharsets.UTF_8));
+                os.write(newStreamContent.getBytes(StandardCharsets.UTF_8));
             }
             page.setContents(newStream);
 
             document.save(currentFile);
             refreshView();
-            Toast.makeText(this, "内容流已修改并保存", Toast.LENGTH_SHORT).show();
+
+            Toast.makeText(this, "已替换: \"" + findText + "\" → \"" + replaceWith + "\"", Toast.LENGTH_SHORT).show();
         } catch (IOException e) {
-            Toast.makeText(this, "应用失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "替换失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    /**
+     * 在 PDF 内容流中查找并替换文字。
+     * PDF 内容流中的文字以 (text) Tj 或 [(text1)(text2)] TJ 格式出现。
+     * 我们在括号内的文本中查找并替换。
+     */
+    private String replaceTextInStream(String stream, String find, String replace) {
+        String result = stream;
+        // 处理 (text) Tj 格式 — 括号内的文本
+        // 需要处理转义括号 \(
+        StringBuilder sb = new StringBuilder();
+        int i = 0;
+        boolean replaced = false;
+        while (i < result.length()) {
+            if (result.charAt(i) == '(' && isTextOperatorContext(result, i)) {
+                // 找到文本字符串的起始
+                int start = i;
+                i++; // 跳过起始括号
+                StringBuilder textInParens = new StringBuilder();
+                int depth = 1;
+                while (i < result.length() && depth > 0) {
+                    char c = result.charAt(i);
+                    if (c == '\\' && i + 1 < result.length()) {
+                        textInParens.append(c);
+                        textInParens.append(result.charAt(i + 1));
+                        i += 2;
+                        continue;
+                    }
+                    if (c == '(') depth++;
+                    else if (c == ')') {
+                        depth--;
+                        if (depth == 0) break;
+                    }
+                    textInParens.append(c);
+                    i++;
+                }
+                // i 现在指向结束的 )
+                String originalText = textInParens.toString();
+                if (originalText.contains(find)) {
+                    String newText = originalText.replace(find, escapePdfString(replace));
+                    sb.append('(').append(newText).append(')');
+                    replaced = true;
+                } else {
+                    sb.append('(').append(originalText).append(')');
+                }
+                i++; // 跳过结束的 )
+            } else {
+                sb.append(result.charAt(i));
+                i++;
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 判断当前括号是否处于文本操作符上下文中
+     * 简单启发式：检查括号后面是否跟着 Tj, TJ, Tc, Tw 等文本操作符
+     */
+    private boolean isTextOperatorContext(String s, int openParenIndex) {
+        // 向后找到匹配的闭括号
+        int depth = 1;
+        int j = openParenIndex + 1;
+        while (j < s.length() && depth > 0) {
+            char c = s.charAt(j);
+            if (c == '\\' && j + 1 < s.length()) {
+                j += 2;
+                continue;
+            }
+            if (c == '(') depth++;
+            else if (c == ')') depth--;
+            j++;
+        }
+        // j 现在指向闭括号之后
+        // 跳过空白
+        while (j < s.length() && (s.charAt(j) == ' ' || s.charAt(j) == '\n' || s.charAt(j) == '\r' || s.charAt(j) == '\t')) {
+            j++;
+        }
+        // 检查接下来的操作符
+        if (j < s.length()) {
+            // 检查是否是 [ 开头（TJ 数组的一部分）
+            if (s.charAt(j) == ')') return true; // 嵌套括号
+            // 读取操作符
+            int opStart = j;
+            while (j < s.length() && !Character.isWhitespace(s.charAt(j)) && s.charAt(j) != '(' && s.charAt(j) != '[') {
+                j++;
+            }
+            String op = s.substring(opStart, j);
+            if (op.equals("Tj") || op.equals("TJ") || op.equals("Tc") || op.equals("Tw") ||
+                op.equals("Tf") || op.equals("TL") || op.equals("Tr") || op.equals("Ts")) {
+                return true;
+            }
+        }
+        // 也可能是 TJ 数组内的元素，保守返回 true
+        // 检查前面是否有 [ 符号（TJ 数组）
+        int k = openParenIndex - 1;
+        while (k >= 0 && (s.charAt(k) == ' ' || s.charAt(k) == '\n' || s.charAt(k) == '\r' || s.charAt(k) == '\t')) {
+            k--;
+        }
+        if (k >= 0 && s.charAt(k) == '[') return true;
+        // 默认对括号内容做替换（宁可多替换也不漏）
+        return true;
+    }
+
+    /**
+     * 转义 PDF 字符串中的特殊字符
+     */
+    private String escapePdfString(String text) {
+        return text.replace("\\", "\\\\")
+                   .replace("(", "\\(")
+                   .replace(")", "\\)");
     }
 
     private void savePdf() {
         if (document == null) return;
         try {
             File outDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-            File outFile = new File(outDir, "pdf_stream_edited.pdf");
+            File outFile = new File(outDir, "pdf_text_edited.pdf");
             document.save(outFile);
             Toast.makeText(this, "已保存: " + outFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
         } catch (IOException e) {
             try {
-                File outFile = new File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "pdf_stream_edited.pdf");
+                File outFile = new File(getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), "pdf_text_edited.pdf");
                 document.save(outFile);
                 Toast.makeText(this, "已保存: " + outFile.getAbsolutePath(), Toast.LENGTH_LONG).show();
             } catch (IOException ex) {

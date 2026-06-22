@@ -53,7 +53,7 @@
         android:layout_height="1dp"
         android:background="#252a3a" />
 
-    <!-- 主内容区：上半 PDF 预览，下半内容流编辑 -->
+    <!-- 主内容区 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -98,7 +98,7 @@
                     android:id="@+id/pageInfo"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Page 1 / 1"
+                    android:text="第 1 / 1 页"
                     android:textColor="#e4e8f1"
                     android:textSize="13sp"
                     android:paddingStart="12dp"
@@ -121,53 +121,92 @@
             android:layout_height="1dp"
             android:background="#252a3a" />
 
-        <!-- 内容流编辑区 -->
+        <!-- 查找替换区 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="4"
             android:orientation="vertical"
-            android:padding="10dp">
+            android:padding="12dp">
 
+            <!-- 页面文字预览 -->
             <TextView
                 android:id="@+id/objInfo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Content Stream Editor"
+                android:text="本页文字内容"
                 android:textColor="#6b7394"
-                android:textSize="11sp"
-                android:paddingBottom="6dp"
-                android:fontFamily="monospace" />
+                android:textSize="12sp"
+                android:paddingBottom="4dp" />
 
             <ScrollView
-                android:id="@+id/streamScroll"
+                android:id="@+id/textScroll"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:background="#141720"
-                android:padding="8dp">
+                android:padding="10dp">
 
-                <EditText
-                    android:id="@+id/streamEditor"
+                <TextView
+                    android:id="@+id/textPreview"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="top|start"
-                    android:hint="PDF content stream..."
-                    android:textColorHint="#4a5270"
                     android:textColor="#c8d0e8"
-                    android:textSize="11sp"
-                    android:fontFamily="monospace"
-                    android:background="@android:color/transparent"
-                    android:inputType="textMultiLine|textVisiblePassword"
-                    android:scrollHorizontally="true" />
+                    android:textSize="14sp"
+                    android:lineSpacingExtra="4dp"
+                    android:text="(打开PDF后这里显示文字)" />
             </ScrollView>
 
+            <!-- 查找替换 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical">
+
+                <EditText
+                    android:id="@+id/editFind"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:hint="查找文字"
+                    android:textColorHint="#4a5270"
+                    android:textColor="#e4e8f1"
+                    android:textSize="14sp"
+                    android:background="#141720"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="6dp"
+                    android:singleLine="true" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text=" → "
+                    android:textColor="#6b7394"
+                    android:textSize="16sp" />
+
+                <EditText
+                    android:id="@+id/editReplace"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:hint="替换为"
+                    android:textColorHint="#4a5270"
+                    android:textColor="#e4e8f1"
+                    android:textSize="14sp"
+                    android:background="#141720"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="6dp"
+                    android:singleLine="true" />
+            </LinearLayout>
+
             <Button
-                android:id="@+id/btnApply"
+                android:id="@+id/btnReplace"
                 android:layout_width="match_parent"
                 android:layout_height="42dp"
                 android:layout_marginTop="8dp"
-                android:text="应用修改"
+                android:text="替换文字"
                 android:textSize="14sp"
                 android:fontFamily="sans-serif-medium"
                 android:backgroundTint="#00e5a0"
