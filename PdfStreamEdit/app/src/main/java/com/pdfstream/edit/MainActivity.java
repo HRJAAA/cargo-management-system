@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -19,18 +20,20 @@ import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
 import com.tom_roush.pdfbox.pdmodel.PDDocument;
 import com.tom_roush.pdfbox.pdmodel.PDPage;
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream;
-import com.tom_roush.pdfbox.pdmodel.common.PDStream;
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle;
+import com.tom_roush.pdfbox.pdmodel.font.PDFont;
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font;
 import com.tom_roush.pdfbox.rendering.PDFRenderer;
 import com.tom_roush.pdfbox.text.PDFTextStripper;
+import com.tom_roush.pdfbox.text.TextPosition;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainActivity extends Activity {
 
@@ -143,9 +146,11 @@ public class MainActivity extends Activity {
                 cs.newLineAtOffset(50, 720);
                 cs.showText("This PDF was created with PdfBox-Android.");
                 cs.newLineAtOffset(0, -20);
-                cs.showText("You can find and replace text directly.");
+                cs.showText("You can find and replace text in original position.");
                 cs.newLineAtOffset(0, -20);
                 cs.showText("Enter the text to find and replace below.");
+                cs.newLineAtOffset(0, -20);
+                cs.showText("Test text: Hello World!");
                 cs.endText();
             }
 
@@ -198,6 +203,13 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * 原位置覆盖替换文本
+     * 1. 用自定义 TextStripper 获取文本位置
+     * 2. 找到匹配文本的坐标
+     * 3. 用白色矩形覆盖原文本
+     * 4. 在同一位置写入新文本
+     */
     private void replaceText() {
         if (document == null) {
             Toast.makeText(this, "请先打开或新建 PDF", Toast.LENGTH_SHORT).show();
@@ -214,154 +226,131 @@ public class MainActivity extends Activity {
 
         try {
             PDPage page = document.getPage(currentPageIndex);
-            InputStream is = page.getContents();
-            if (is == null) {
-                Toast.makeText(this, "本页无内容", Toast.LENGTH_SHORT).show();
-                return;
-            }
+            
+            // 获取文本位置信息
+            PositionTextStripper stripper = new PositionTextStripper();
+            stripper.setStartPage(currentPageIndex + 1);
+            stripper.setEndPage(currentPageIndex + 1);
+            stripper.getText(document);
+            List<TextPosition> positions = stripper.getTextPositions();
 
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            byte[] buf = new byte[4096];
-            int len;
-            while ((len = is.read(buf)) > 0) baos.write(buf, 0, len);
-            is.close();
-
-            String streamContent = baos.toString("UTF-8");
-
-            // 在内容流中查找替换：处理 PDF 文本操作符中的文字
-            // 匹配 (text) Tj 和 [(text1)(text2)] TJ 两种格式
-            String newStreamContent = replaceTextInStream(streamContent, findText, replaceWith);
-
-            if (newStreamContent.equals(streamContent)) {
+            // 找到匹配的文本区域
+            List<TextRegion> regions = findTextRegions(positions, findText);
+            
+            if (regions.isEmpty()) {
                 Toast.makeText(this, "未找到 \"" + findText + "\"", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // 写回修改后的内容流
-            PDStream newStream = new PDStream(document);
-            try (OutputStream os = newStream.createOutputStream()) {
-                os.write(newStreamContent.getBytes(StandardCharsets.UTF_8));
+            // 在原位置覆盖替换
+            PDRectangle mediaBox = page.getMediaBox();
+            
+            // 使用 append 模式添加内容（覆盖在原有内容之上）
+            try (PDPageContentStream cs = new PDPageContentStream(document, page, 
+                    PDPageContentStream.AppendMode.APPEND, true, true)) {
+                
+                for (TextRegion region : regions) {
+                    // 用白色矩形覆盖原文本
+                    cs.setNonStrokingColor(Color.WHITE);
+                    cs.addRect(region.x, mediaBox.getHeight() - region.y - region.height,
+                               region.width, region.height + 2);
+                    cs.fill();
+                    
+                    // 在原位置写入新文本
+                    cs.setNonStrokingColor(Color.BLACK);
+                    cs.setFont(PDType1Font.HELVETICA, region.fontSize);
+                    cs.beginText();
+                    cs.newLineAtOffset(region.x, mediaBox.getHeight() - region.y - region.height + 2);
+                    cs.showText(replaceWith);
+                    cs.endText();
+                }
             }
-            page.setContents(newStream);
 
             document.save(currentFile);
             refreshView();
 
-            Toast.makeText(this, "已替换: \"" + findText + "\" → \"" + replaceWith + "\"", Toast.LENGTH_SHORT).show();
-        } catch (IOException e) {
+            Toast.makeText(this, "已替换 " + regions.size() + " 处: \"" + findText + "\" → \"" + replaceWith + "\"", 
+                    Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
             Toast.makeText(this, "替换失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
     /**
-     * 在 PDF 内容流中查找并替换文字。
-     * PDF 内容流中的文字以 (text) Tj 或 [(text1)(text2)] TJ 格式出现。
-     * 我们在括号内的文本中查找并替换。
+     * 从 TextPosition 列表中找到匹配文本的区域
      */
-    private String replaceTextInStream(String stream, String find, String replace) {
-        String result = stream;
-        // 处理 (text) Tj 格式 — 括号内的文本
-        // 需要处理转义括号 \(
-        StringBuilder sb = new StringBuilder();
-        int i = 0;
-        boolean replaced = false;
-        while (i < result.length()) {
-            if (result.charAt(i) == '(' && isTextOperatorContext(result, i)) {
-                // 找到文本字符串的起始
-                int start = i;
-                i++; // 跳过起始括号
-                StringBuilder textInParens = new StringBuilder();
-                int depth = 1;
-                while (i < result.length() && depth > 0) {
-                    char c = result.charAt(i);
-                    if (c == '\\' && i + 1 < result.length()) {
-                        textInParens.append(c);
-                        textInParens.append(result.charAt(i + 1));
-                        i += 2;
-                        continue;
-                    }
-                    if (c == '(') depth++;
-                    else if (c == ')') {
-                        depth--;
-                        if (depth == 0) break;
-                    }
-                    textInParens.append(c);
-                    i++;
-                }
-                // i 现在指向结束的 )
-                String originalText = textInParens.toString();
-                if (originalText.contains(find)) {
-                    String newText = originalText.replace(find, escapePdfString(replace));
-                    sb.append('(').append(newText).append(')');
-                    replaced = true;
-                } else {
-                    sb.append('(').append(originalText).append(')');
-                }
-                i++; // 跳过结束的 )
-            } else {
-                sb.append(result.charAt(i));
-                i++;
+    private List<TextRegion> findTextRegions(List<TextPosition> positions, String findText) {
+        List<TextRegion> regions = new ArrayList<>();
+        String allText = "";
+        List<Integer> charStartIndices = new ArrayList<>();
+        
+        // 构建完整文本字符串，记录每个字符在 positions 中的起始索引
+        for (int i = 0; i < positions.size(); i++) {
+            TextPosition pos = positions.get(i);
+            String ch = pos.getUnicode();
+            if (ch != null && !ch.isEmpty()) {
+                charStartIndices.add(i);
+                allText += ch;
             }
         }
-        return sb.toString();
+        
+        // 查找所有匹配位置
+        int searchIndex = 0;
+        while (searchIndex < allText.length()) {
+            int foundIndex = allText.indexOf(findText, searchIndex);
+            if (foundIndex < 0) break;
+            
+            // 计算匹配文本的区域
+            int startPosIndex = charStartIndices.get(foundIndex);
+            int endPosIndex = charStartIndices.get(Math.min(foundIndex + findText.length() - 1, charStartIndices.size() - 1));
+            
+            TextPosition startPos = positions.get(startPosIndex);
+            TextPosition endPos = positions.get(endPosIndex);
+            
+            TextRegion region = new TextRegion();
+            region.x = startPos.getX();
+            region.y = startPos.getY();
+            region.width = endPos.getX() + endPos.getWidth() - startPos.getX();
+            region.height = startPos.getHeight();
+            region.fontSize = startPos.getFontSize();
+            regions.add(region);
+            
+            searchIndex = foundIndex + findText.length();
+        }
+        
+        return regions;
     }
 
     /**
-     * 判断当前括号是否处于文本操作符上下文中
-     * 简单启发式：检查括号后面是否跟着 Tj, TJ, Tc, Tw 等文本操作符
+     * 自定义 TextStripper，收集文本位置信息
      */
-    private boolean isTextOperatorContext(String s, int openParenIndex) {
-        // 向后找到匹配的闭括号
-        int depth = 1;
-        int j = openParenIndex + 1;
-        while (j < s.length() && depth > 0) {
-            char c = s.charAt(j);
-            if (c == '\\' && j + 1 < s.length()) {
-                j += 2;
-                continue;
-            }
-            if (c == '(') depth++;
-            else if (c == ')') depth--;
-            j++;
+    private static class PositionTextStripper extends PDFTextStripper {
+        private List<TextPosition> textPositions = new ArrayList<>();
+
+        public PositionTextStripper() throws IOException {
+            super();
         }
-        // j 现在指向闭括号之后
-        // 跳过空白
-        while (j < s.length() && (s.charAt(j) == ' ' || s.charAt(j) == '\n' || s.charAt(j) == '\r' || s.charAt(j) == '\t')) {
-            j++;
+
+        @Override
+        protected void processTextPosition(TextPosition text) {
+            textPositions.add(text);
+            super.processTextPosition(text);
         }
-        // 检查接下来的操作符
-        if (j < s.length()) {
-            // 检查是否是 [ 开头（TJ 数组的一部分）
-            if (s.charAt(j) == ')') return true; // 嵌套括号
-            // 读取操作符
-            int opStart = j;
-            while (j < s.length() && !Character.isWhitespace(s.charAt(j)) && s.charAt(j) != '(' && s.charAt(j) != '[') {
-                j++;
-            }
-            String op = s.substring(opStart, j);
-            if (op.equals("Tj") || op.equals("TJ") || op.equals("Tc") || op.equals("Tw") ||
-                op.equals("Tf") || op.equals("TL") || op.equals("Tr") || op.equals("Ts")) {
-                return true;
-            }
+
+        public List<TextPosition> getTextPositions() {
+            return textPositions;
         }
-        // 也可能是 TJ 数组内的元素，保守返回 true
-        // 检查前面是否有 [ 符号（TJ 数组）
-        int k = openParenIndex - 1;
-        while (k >= 0 && (s.charAt(k) == ' ' || s.charAt(k) == '\n' || s.charAt(k) == '\r' || s.charAt(k) == '\t')) {
-            k--;
-        }
-        if (k >= 0 && s.charAt(k) == '[') return true;
-        // 默认对括号内容做替换（宁可多替换也不漏）
-        return true;
     }
 
     /**
-     * 转义 PDF 字符串中的特殊字符
+     * 文本区域信息
      */
-    private String escapePdfString(String text) {
-        return text.replace("\\", "\\\\")
-                   .replace("(", "\\(")
-                   .replace(")", "\\)");
+    private static class TextRegion {
+        float x;
+        float y;
+        float width;
+        float height;
+        float fontSize;
     }
 
     private void savePdf() {
