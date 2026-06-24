@@ -2,13 +2,16 @@ package com.pdfstream.edit;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -21,7 +24,6 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument;
 import com.tom_roush.pdfbox.pdmodel.PDPage;
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream;
 import com.tom_roush.pdfbox.pdmodel.common.PDRectangle;
-import com.tom_roush.pdfbox.pdmodel.font.PDFont;
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font;
 import com.tom_roush.pdfbox.rendering.PDFRenderer;
 import com.tom_roush.pdfbox.text.PDFTextStripper;
@@ -43,13 +45,16 @@ public class MainActivity extends Activity {
     private PDDocument document;
     private int currentPageIndex = 0;
     private File currentFile;
+    private Bitmap pdfBitmap;
+    private float renderDPI = 150;
+    private List<TextPosition> textPositions = new ArrayList<>();
+    private PDRectangle mediaBox;
+
     private ImageView pdfPreview;
     private TextView textPreview;
     private TextView pageInfo;
-    private TextView objInfo;
-    private EditText editFind;
-    private EditText editReplace;
-    private Button btnPrev, btnNext, btnReplace, btnOpen, btnNew, btnSave;
+    private TextView statusInfo;
+    private Button btnPrev, btnNext, btnOpen, btnNew, btnSave;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,12 +64,9 @@ public class MainActivity extends Activity {
         pdfPreview = findViewById(R.id.pdfPreview);
         textPreview = findViewById(R.id.textPreview);
         pageInfo = findViewById(R.id.pageInfo);
-        objInfo = findViewById(R.id.objInfo);
-        editFind = findViewById(R.id.editFind);
-        editReplace = findViewById(R.id.editReplace);
+        statusInfo = findViewById(R.id.objInfo);
         btnPrev = findViewById(R.id.btnPrev);
         btnNext = findViewById(R.id.btnNext);
-        btnReplace = findViewById(R.id.btnReplace);
         btnOpen = findViewById(R.id.btnOpen);
         btnNew = findViewById(R.id.btnNew);
         btnSave = findViewById(R.id.btnSave);
@@ -73,8 +75,17 @@ public class MainActivity extends Activity {
         btnNew.setOnClickListener(v -> createNewPdf());
         btnPrev.setOnClickListener(v -> navigatePage(-1));
         btnNext.setOnClickListener(v -> navigatePage(1));
-        btnReplace.setOnClickListener(v -> replaceText());
         btnSave.setOnClickListener(v -> savePdf());
+
+        // 点击PDF预览图片，编辑文字
+        pdfPreview.setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                float touchX = event.getX();
+                float touchY = event.getY();
+                onPdfTouched(touchX, touchY);
+            }
+            return false;
+        });
 
         requestPermissions();
         createNewPdf();
@@ -141,16 +152,16 @@ public class MainActivity extends Activity {
                 cs.showText("PDF Text Editor");
                 cs.endText();
 
-                cs.setFont(PDType1Font.HELVETICA, 12);
+                cs.setFont(PDType1Font.HELVETICA, 14);
                 cs.beginText();
                 cs.newLineAtOffset(50, 720);
-                cs.showText("This PDF was created with PdfBox-Android.");
-                cs.newLineAtOffset(0, -20);
-                cs.showText("You can find and replace text in original position.");
-                cs.newLineAtOffset(0, -20);
-                cs.showText("Enter the text to find and replace below.");
-                cs.newLineAtOffset(0, -20);
-                cs.showText("Test text: Hello World!");
+                cs.showText("Click on any text to edit it directly.");
+                cs.newLineAtOffset(0, -25);
+                cs.showText("Hello World!");
+                cs.newLineAtOffset(0, -25);
+                cs.showText("This is a sample PDF document.");
+                cs.newLineAtOffset(0, -25);
+                cs.showText("Edit me by clicking!");
                 cs.endText();
             }
 
@@ -167,190 +178,182 @@ public class MainActivity extends Activity {
     private void refreshView() {
         if (document == null) return;
         try {
+            PDPage page = document.getPage(currentPageIndex);
+            mediaBox = page.getMediaBox();
+
             PDFRenderer renderer = new PDFRenderer(document);
-            Bitmap bitmap = renderer.renderImageWithDPI(currentPageIndex, 150);
-            pdfPreview.setImageBitmap(bitmap);
+            pdfBitmap = renderer.renderImageWithDPI(currentPageIndex, renderDPI);
+            pdfPreview.setImageBitmap(pdfBitmap);
 
             int totalPages = document.getNumberOfPages();
             pageInfo.setText("第 " + (currentPageIndex + 1) + " / " + totalPages + " 页");
             btnPrev.setEnabled(currentPageIndex > 0);
             btnNext.setEnabled(currentPageIndex < totalPages - 1);
 
-            extractPageText();
+            // 提取文字和位置信息
+            extractTextWithPositions();
         } catch (IOException e) {
             Toast.makeText(this, "渲染失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
 
-    private void extractPageText() {
+    private void extractTextWithPositions() {
         if (document == null) return;
         try {
-            PDFTextStripper stripper = new PDFTextStripper();
-            stripper.setStartPage(currentPageIndex + 1);
-            stripper.setEndPage(currentPageIndex + 1);
-            String text = stripper.getText(document);
-
-            if (text == null || text.trim().isEmpty()) {
-                textPreview.setText("(本页无可提取的文字)");
-                objInfo.setText("本页文字内容 — 无文字");
-            } else {
-                textPreview.setText(text.trim());
-                int charCount = text.trim().length();
-                objInfo.setText("本页文字内容 — " + charCount + " 字");
-            }
-        } catch (IOException e) {
-            textPreview.setText("(提取文字失败: " + e.getMessage() + ")");
-        }
-    }
-
-    /**
-     * 原位置覆盖替换文本
-     * 1. 用自定义 TextStripper 获取文本位置
-     * 2. 找到匹配文本的坐标
-     * 3. 用白色矩形覆盖原文本
-     * 4. 在同一位置写入新文本
-     */
-    private void replaceText() {
-        if (document == null) {
-            Toast.makeText(this, "请先打开或新建 PDF", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        String findText = editFind.getText().toString();
-        String replaceWith = editReplace.getText().toString();
-
-        if (findText.isEmpty()) {
-            Toast.makeText(this, "请输入要查找的文字", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        try {
-            PDPage page = document.getPage(currentPageIndex);
-            
-            // 获取文本位置信息
             PositionTextStripper stripper = new PositionTextStripper();
             stripper.setStartPage(currentPageIndex + 1);
             stripper.setEndPage(currentPageIndex + 1);
             stripper.getText(document);
-            List<TextPosition> positions = stripper.getTextPositions();
+            textPositions = stripper.getTextPositions();
 
-            // 找到匹配的文本区域
-            List<TextRegion> regions = findTextRegions(positions, findText);
-            
-            if (regions.isEmpty()) {
-                Toast.makeText(this, "未找到 \"" + findText + "\"", Toast.LENGTH_SHORT).show();
-                return;
+            // 显示文字预览
+            StringBuilder sb = new StringBuilder();
+            for (TextPosition pos : textPositions) {
+                String ch = pos.getUnicode();
+                if (ch != null) sb.append(ch);
             }
+            textPreview.setText(sb.toString().trim());
+            statusInfo.setText("点击PDF上的文字可直接编辑");
+        } catch (IOException e) {
+            textPreview.setText("(提取文字失败)");
+        }
+    }
 
-            // 在原位置覆盖替换
-            PDRectangle mediaBox = page.getMediaBox();
-            
-            // 使用 append 模式添加内容（覆盖在原有内容之上）
-            try (PDPageContentStream cs = new PDPageContentStream(document, page, 
+    /**
+     * 处理PDF预览的点击事件
+     * 将屏幕坐标转换为PDF坐标，找到附近的文字
+     */
+    private void onPdfTouched(float touchX, float touchY) {
+        if (textPositions.isEmpty() || pdfBitmap == null || mediaBox == null) {
+            Toast.makeText(this, "请先打开PDF文件", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 计算ImageView中的实际显示区域
+        int imgWidth = pdfBitmap.getWidth();
+        int imgHeight = pdfBitmap.getHeight();
+        int viewWidth = pdfPreview.getWidth();
+        int viewHeight = pdfPreview.getHeight();
+
+        // 计算缩放比例和偏移（fitCenter模式）
+        float scale = Math.min((float) viewWidth / imgWidth, (float) viewHeight / imgHeight);
+        float scaledWidth = imgWidth * scale;
+        float scaledHeight = imgHeight * scale;
+        float offsetX = (viewWidth - scaledWidth) / 2;
+        float offsetY = (viewHeight - scaledHeight) / 2;
+
+        // 将触摸坐标转换为图片坐标
+        float imgX = (touchX - offsetX) / scale;
+        float imgY = (touchY - offsetY) / scale;
+
+        // 将图片坐标转换为PDF坐标
+        // 图片Y轴从上往下，PDF Y轴从下往上
+        float pdfX = imgX * 72 / renderDPI;  // DPI转PDF单位(72dpi)
+        float pdfY = mediaBox.getHeight() - (imgY * 72 / renderDPI);
+
+        // 找到点击位置附近的文字
+        TextPosition clickedText = findNearestText(pdfX, pdfY);
+        if (clickedText == null) {
+            Toast.makeText(this, "该位置没有文字", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // 弹出编辑对话框
+        showEditDialog(clickedText);
+    }
+
+    /**
+     * 找到距离点击位置最近的文字
+     */
+    private TextPosition findNearestText(float pdfX, float pdfY) {
+        TextPosition nearest = null;
+        float minDistance = Float.MAX_VALUE;
+
+        for (TextPosition pos : textPositions) {
+            float textX = pos.getX();
+            float textY = pos.getY();
+            float textWidth = pos.getWidth();
+            float textHeight = pos.getHeight();
+
+            // 文字的中心点
+            float centerX = textX + textWidth / 2;
+            float centerY = textY - textHeight / 2;  // PDF的Y是baseline，往上才是文字区域
+
+            // 计算距离
+            float distance = Math.sqrt((pdfX - centerX) * (pdfX - centerX) + (pdfY - centerY) * (pdfY - centerY));
+
+            // 点击是否在文字区域内（放宽范围便于点击）
+            float hitRadius = Math.max(textWidth, textHeight) * 1.5f;
+            if (distance < hitRadius && distance < minDistance) {
+                minDistance = distance;
+                nearest = pos;
+            }
+        }
+
+        return nearest;
+    }
+
+    /**
+     * 显示编辑对话框
+     */
+    private void showEditDialog(TextPosition textPos) {
+        String originalText = textPos.getUnicode();
+        if (originalText == null) originalText = "";
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("编辑文字");
+
+        final EditText input = new EditText(this);
+        input.setText(originalText);
+        input.selectAll();
+        builder.setView(input);
+
+        builder.setPositiveButton("保存", (dialog, which) -> {
+            String newText = input.getText().toString();
+            if (!newText.equals(originalText)) {
+                replaceTextAtPosition(textPos, newText);
+            }
+        });
+
+        builder.setNegativeButton("取消", (dialog, which) -> dialog.cancel());
+
+        builder.show();
+    }
+
+    /**
+     * 在指定位置替换文字
+     */
+    private void replaceTextAtPosition(TextPosition textPos, String newText) {
+        try {
+            PDPage page = document.getPage(currentPageIndex);
+
+            // 用白色矩形覆盖原文字
+            try (PDPageContentStream cs = new PDPageContentStream(document, page,
                     PDPageContentStream.AppendMode.APPEND, true, true)) {
-                
-                for (TextRegion region : regions) {
-                    // 用白色矩形覆盖原文本
-                    cs.setNonStrokingColor(Color.WHITE);
-                    cs.addRect(region.x, mediaBox.getHeight() - region.y - region.height,
-                               region.width, region.height + 2);
-                    cs.fill();
-                    
-                    // 在原位置写入新文本
-                    cs.setNonStrokingColor(Color.BLACK);
-                    cs.setFont(PDType1Font.HELVETICA, region.fontSize);
-                    cs.beginText();
-                    cs.newLineAtOffset(region.x, mediaBox.getHeight() - region.y - region.height + 2);
-                    cs.showText(replaceWith);
-                    cs.endText();
-                }
+
+                // 覆盖原文字区域
+                cs.setNonStrokingColor(Color.WHITE);
+                cs.addRect(textPos.getX() - 1,
+                           mediaBox.getHeight() - textPos.getY() - textPos.getHeight() - 1,
+                           textPos.getWidth() + 2,
+                           textPos.getHeight() + 2);
+                cs.fill();
+
+                // 写入新文字
+                cs.setNonStrokingColor(Color.BLACK);
+                cs.setFont(PDType1Font.HELVETICA, textPos.getFontSize());
+                cs.beginText();
+                cs.newLineAtOffset(textPos.getX(), mediaBox.getHeight() - textPos.getY() - textPos.getHeight());
+                cs.showText(newText);
+                cs.endText();
             }
 
             document.save(currentFile);
             refreshView();
-
-            Toast.makeText(this, "已替换 " + regions.size() + " 处: \"" + findText + "\" → \"" + replaceWith + "\"", 
-                    Toast.LENGTH_SHORT).show();
-        } catch (Exception e) {
-            Toast.makeText(this, "替换失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "已修改: \"" + textPos.getUnicode() + "\" → \"" + newText + "\"", Toast.LENGTH_SHORT).show();
+        } catch (IOException e) {
+            Toast.makeText(this, "修改失败: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
-    }
-
-    /**
-     * 从 TextPosition 列表中找到匹配文本的区域
-     */
-    private List<TextRegion> findTextRegions(List<TextPosition> positions, String findText) {
-        List<TextRegion> regions = new ArrayList<>();
-        String allText = "";
-        List<Integer> charStartIndices = new ArrayList<>();
-        
-        // 构建完整文本字符串，记录每个字符在 positions 中的起始索引
-        for (int i = 0; i < positions.size(); i++) {
-            TextPosition pos = positions.get(i);
-            String ch = pos.getUnicode();
-            if (ch != null && !ch.isEmpty()) {
-                charStartIndices.add(i);
-                allText += ch;
-            }
-        }
-        
-        // 查找所有匹配位置
-        int searchIndex = 0;
-        while (searchIndex < allText.length()) {
-            int foundIndex = allText.indexOf(findText, searchIndex);
-            if (foundIndex < 0) break;
-            
-            // 计算匹配文本的区域
-            int startPosIndex = charStartIndices.get(foundIndex);
-            int endPosIndex = charStartIndices.get(Math.min(foundIndex + findText.length() - 1, charStartIndices.size() - 1));
-            
-            TextPosition startPos = positions.get(startPosIndex);
-            TextPosition endPos = positions.get(endPosIndex);
-            
-            TextRegion region = new TextRegion();
-            region.x = startPos.getX();
-            region.y = startPos.getY();
-            region.width = endPos.getX() + endPos.getWidth() - startPos.getX();
-            region.height = startPos.getHeight();
-            region.fontSize = startPos.getFontSize();
-            regions.add(region);
-            
-            searchIndex = foundIndex + findText.length();
-        }
-        
-        return regions;
-    }
-
-    /**
-     * 自定义 TextStripper，收集文本位置信息
-     */
-    private static class PositionTextStripper extends PDFTextStripper {
-        private List<TextPosition> textPositions = new ArrayList<>();
-
-        public PositionTextStripper() throws IOException {
-            super();
-        }
-
-        @Override
-        protected void processTextPosition(TextPosition text) {
-            textPositions.add(text);
-            super.processTextPosition(text);
-        }
-
-        public List<TextPosition> getTextPositions() {
-            return textPositions;
-        }
-    }
-
-    /**
-     * 文本区域信息
-     */
-    private static class TextRegion {
-        float x;
-        float y;
-        float width;
-        float height;
-        float fontSize;
     }
 
     private void savePdf() {
@@ -385,6 +388,27 @@ public class MainActivity extends Activity {
         super.onDestroy();
         if (document != null) {
             try { document.close(); } catch (IOException ignored) {}
+        }
+    }
+
+    /**
+     * 自定义TextStripper，收集文本位置信息
+     */
+    private static class PositionTextStripper extends PDFTextStripper {
+        private List<TextPosition> textPositions = new ArrayList<>();
+
+        public PositionTextStripper() throws IOException {
+            super();
+        }
+
+        @Override
+        protected void processTextPosition(TextPosition text) {
+            textPositions.add(text);
+            super.processTextPosition(text);
+        }
+
+        public List<TextPosition> getTextPositions() {
+            return textPositions;
         }
     }
 }
