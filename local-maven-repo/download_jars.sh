@@ -1,0 +1,112 @@
+#!/bin/bash
+set -e
+
+MAVEN_CENTRAL="https://repo1.maven.org/maven2"
+GOOGLE_ANDROID="https://dl.google.com/android/maven2"
+
+# Function to download a JAR
+download_jar() {
+    local repo="$1"
+    local path="$2"
+    local dir=$(dirname "$path")
+    
+    mkdir -p "$dir"
+    
+    if [ ! -f "$path" ]; then
+        echo "Downloading: $path"
+        curl -fsSL -o "$path" "${repo}/${path}" || {
+            echo "FAILED: $path"
+            return 1
+        }
+    else
+        echo "Already exists: $path"
+    fi
+}
+
+# Maven Central JARs (81 files)
+download_jar "$MAVEN_CENTRAL" "org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.8.20-RC2/kotlin-stdlib-jdk8-1.8.20-RC2.jar"
+download_jar "$MAVEN_CENTRAL" "org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.jar"
+download_jar "$MAVEN_CENTRAL" "commons-io/commons-io/2.4/commons-io-2.4.jar"
+download_jar "$MAVEN_CENTRAL" "org/ow2/asm/asm-commons/9.2/asm-commons-9.2.jar"
+download_jar "$MAVEN_CENTRAL" "org/ow2/asm/asm-util/9.2/asm-util-9.2.jar"
+download_jar "$MAVEN_CENTRAL" "org/ow2/asm/asm-analysis/9.2/asm-analysis-9.2.jar"
+download_jar "$MAVEN_CENTRAL" "org/ow2/asm/asm-tree/9.2/asm-tree-9.2.jar"
+download_jar "$MAVEN_CENTRAL" "org/ow2/asm/asm/9.2/asm-9.2.jar"
+download_jar "$MAVEN_CENTRAL" "org/bouncycastle/bcpkix-jdk15on/1.67/bcpkix-jdk15on-1.67.jar"
+download_jar "$MAVEN_CENTRAL" "org/bouncycastle/bcprov-jdk15on/1.67/bcprov-jdk15on-1.67.jar"
+download_jar "$MAVEN_CENTRAL" "org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.jar"
+download_jar "$MAVEN_CENTRAL" "org/glassfish/jaxb/txw2/2.3.2/txw2-2.3.2.jar"
+download_jar "$MAVEN_CENTRAL" "org/jvnet/staxex/stax-ex/1.8.1/stax-ex-1.8.1.jar"
+download_jar "$MAVEN_CENTRAL" "com/sun/istack/istack-commons-runtime/3.0.8/istack-commons-runtime-3.0.8.jar"
+download_jar "$MAVEN_CENTRAL" "com/sun/xml/fastinfoset/FastInfoset/1.2.16/FastInfoset-1.2.16.jar"
+download_jar "$MAVEN_CENTRAL" "jakarta/xml/bind/jakarta.xml.bind-api/2.3.2/jakarta.xml.bind-api-2.3.2.jar"
+download_jar "$MAVEN_CENTRAL" "jakarta/activation/jakarta.activation-api/1.2.1/jakarta.activation-api-1.2.1.jar"
+download_jar "$MAVEN_CENTRAL" "javax/annotation/javax.annotation-api/1.3.2/javax.annotation-api-1.3.2.jar"
+download_jar "$MAVEN_CENTRAL" "javax/inject/javax.inject/1/javax.inject-1.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/dagger/dagger/2.28.3/dagger-2.28.3.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/jimfs/jimfs/1.1/jimfs-1.1.jar"
+download_jar "$MAVEN_CENTRAL" "com/squareup/javapoet/1.10.0/javapoet-1.10.0.jar"
+download_jar "$MAVEN_CENTRAL" "com/squareup/javawriter/2.5.0/javawriter-2.5.0.jar"
+download_jar "$MAVEN_CENTRAL" "net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.jar"
+download_jar "$MAVEN_CENTRAL" "com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.jar"
+download_jar "$MAVEN_CENTRAL" "org/apache/commons/commons-compress/1.21/commons-compress-1.21.jar"
+download_jar "$MAVEN_CENTRAL" "net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.jar"
+download_jar "$MAVEN_CENTRAL" "xerces/xercesImpl/2.12.0/xercesImpl-2.12.0.jar"
+download_jar "$MAVEN_CENTRAL" "com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.jar"
+download_jar "$MAVEN_CENTRAL" "org/jetbrains/kotlin/kotlin-stdlib/1.8.20-RC2/kotlin-stdlib-1.8.20-RC2.jar"
+download_jar "$MAVEN_CENTRAL" "org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.8.20-RC2/kotlin-stdlib-jdk7-1.8.20-RC2.jar"
+download_jar "$MAVEN_CENTRAL" "org/jetbrains/kotlin/kotlin-reflect/1.8.20-RC2/kotlin-reflect-1.8.20-RC2.jar"
+download_jar "$MAVEN_CENTRAL" "org/jetbrains/kotlin/kotlin-stdlib-common/1.8.20-RC2/kotlin-stdlib-common-1.8.20-RC2.jar"
+download_jar "$MAVEN_CENTRAL" "org/jetbrains/annotations/13.0/annotations-13.0.jar"
+download_jar "$MAVEN_CENTRAL" "org/jetbrains/intellij/deps/trove4j/1.0.20200330/trove4j-1.0.20200330.jar"
+download_jar "$MAVEN_CENTRAL" "io/grpc/grpc-api/1.45.1/grpc-api-1.45.1.jar"
+download_jar "$MAVEN_CENTRAL" "io/grpc/grpc-core/1.45.1/grpc-core-1.45.1.jar"
+download_jar "$MAVEN_CENTRAL" "io/grpc/grpc-netty/1.45.1/grpc-netty-1.45.1.jar"
+download_jar "$MAVEN_CENTRAL" "io/grpc/grpc-protobuf/1.45.1/grpc-protobuf-1.45.1.jar"
+download_jar "$MAVEN_CENTRAL" "io/grpc/grpc-protobuf-lite/1.45.1/grpc-protobuf-lite-1.45.1.jar"
+download_jar "$MAVEN_CENTRAL" "io/grpc/grpc-stub/1.45.1/grpc-stub-1.45.1.jar"
+download_jar "$MAVEN_CENTRAL" "io/grpc/grpc-context/1.45.1/grpc-context-1.45.1.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/protobuf/protobuf-java/3.19.3/protobuf-java-3.19.3.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/protobuf/protobuf-java-util/3.19.3/protobuf-java-util-3.19.3.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/api/grpc/proto-google-common-protos/2.0.1/proto-google-common-protos-2.0.1.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/crypto/tink/tink/1.7.0/tink-1.7.0.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/code/gson/gson/2.8.9/gson-2.8.9.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/flatbuffers/flatbuffers-java/1.12.0/flatbuffers-java-1.12.0.jar"
+download_jar "$MAVEN_CENTRAL" "org/apache/httpcomponents/httpcore/4.4.15/httpcore-4.4.15.jar"
+download_jar "$MAVEN_CENTRAL" "org/apache/httpcomponents/httpclient/4.5.13/httpclient-4.5.13.jar"
+download_jar "$MAVEN_CENTRAL" "commons-codec/commons-codec/1.11/commons-codec-1.11.jar"
+download_jar "$MAVEN_CENTRAL" "org/slf4j/slf4j-api/1.7.30/slf4j-api-1.7.30.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/guava/guava/31.1-jre/guava-31.1-jre.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict-with-guava/listenablefuture-9999.0-empty-to-avoid-conflict-with-guava.jar"
+download_jar "$MAVEN_CENTRAL" "org/checkerframework/checker-qual/3.12.0/checker-qual-3.12.0.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/j2objc/j2objc-annotations/1.3/j2objc-annotations-1.3.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/code/findbugs/jsr305/3.0.2/jsr305-3.0.2.jar"
+download_jar "$MAVEN_CENTRAL" "org/codehaus/mojo/animal-sniffer-annotations/1.19/animal-sniffer-annotations-1.19.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/errorprone/error_prone_annotations/2.11.0/error_prone_annotations-2.11.0.jar"
+download_jar "$MAVEN_CENTRAL" "com/google/auto/value/auto-value-annotations/1.6.2/auto-value-annotations-1.6.2.jar"
+download_jar "$MAVEN_CENTRAL" "io/perfmark/perfmark-api/0.23.0/perfmark-api-0.23.0.jar"
+download_jar "$MAVEN_CENTRAL" "io/netty/netty-handler/4.1.72.Final/netty-handler-4.1.72.Final.jar"
+download_jar "$MAVEN_CENTRAL" "io/netty/netty-codec-socks/4.1.72.Final/netty-codec-socks-4.1.72.Final.jar"
+download_jar "$MAVEN_CENTRAL" "io/netty/netty-codec/4.1.72.Final/netty-codec-4.1.72.Final.jar"
+download_jar "$MAVEN_CENTRAL" "io/netty/netty-transport/4.1.72.Final/netty-transport-4.1.72.Final.jar"
+download_jar "$MAVEN_CENTRAL" "io/netty/netty-buffer/4.1.72.Final/netty-buffer-4.1.72.Final.jar"
+download_jar "$MAVEN_CENTRAL" "io/netty/netty-resolver/4.1.72.Final/netty-resolver-4.1.72.Final.jar"
+download_jar "$MAVEN_CENTRAL" "io/netty/netty-common/4.1.72.Final/netty-common-4.1.72.Final.jar"
+download_jar "$MAVEN_CENTRAL" "io/netty/netty-codec-http/4.1.72.Final/netty-codec-http-4.1.72.Final.jar"
+download_jar "$MAVEN_CENTRAL" "io/netty/netty-codec-http2/4.1.72.Final/netty-codec-http2-4.1.72.Final.jar"
+download_jar "$MAVEN_CENTRAL" "io/netty/netty-handler-proxy/4.1.72.Final/netty-handler-proxy-4.1.72.Final.jar"
+download_jar "$MAVEN_CENTRAL" "net/java/dev/jna/jna/5.6.0/jna-5.6.0.jar"
+download_jar "$MAVEN_CENTRAL" "net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.jar"
+download_jar "$MAVEN_CENTRAL" "org/bouncycastle/bcprov-jdk15to18/1.72/bcprov-jdk15to18-1.72.jar"
+download_jar "$MAVEN_CENTRAL" "org/bouncycastle/bcpkix-jdk15to18/1.72/bcpkix-jdk15to18-1.72.jar"
+download_jar "$MAVEN_CENTRAL" "org/bouncycastle/bcutil-jdk15to18/1.72/bcutil-jdk15to18-1.72.jar"
+download_jar "$MAVEN_CENTRAL" "org/jdom/jdom2/2.0.6/jdom2-2.0.6.jar"
+download_jar "$MAVEN_CENTRAL" "org/bitbucket/b_c/jose4j/0.7.0/jose4j-0.7.0.jar"
+download_jar "$MAVEN_CENTRAL" "xml-apis/xml-apis/1.4.01/xml-apis-1.4.01.jar"
+download_jar "$MAVEN_CENTRAL" "commons-logging/commons-logging/1.2/commons-logging-1.2.jar"
+
+# Google Android Maven JAR (1 file)
+download_jar "$GOOGLE_ANDROID" "com/google/android/annotations/4.1.1.4/annotations-4.1.1.4.jar"
+
+echo "All downloads completed!"
